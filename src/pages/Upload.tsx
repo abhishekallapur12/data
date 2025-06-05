@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { Upload as UploadIcon, File, X, Plus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { IPFSService } from '@/services/ipfsService';
 
 const Upload = () => {
-  const { isConnected } = useWeb3();
+  const { isConnected, account } = useWeb3();
   const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -103,18 +103,33 @@ const Upload = () => {
     setIsUploading(true);
 
     try {
-      // Here you would integrate with IPFS and Supabase
-      // For now, we'll simulate the upload process
-      
+      // Upload file to IPFS
       console.log('Uploading to IPFS...', selectedFile);
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate upload
+      const ipfsHash = await IPFSService.uploadFile(selectedFile);
+      console.log('File uploaded to IPFS with hash:', ipfsHash);
 
-      console.log('Saving metadata to Supabase...', formData);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate database save
+      // Prepare metadata for Supabase
+      const datasetMetadata = {
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        tags: formData.tags,
+        ipfs_hash: ipfsHash,
+        file_name: selectedFile.name,
+        file_size: selectedFile.size,
+        file_type: selectedFile.type,
+        uploader_address: account,
+        upload_timestamp: new Date().toISOString(),
+      };
+
+      console.log('Saving metadata to Supabase...', datasetMetadata);
+      // TODO: Save to Supabase database once tables are created
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Temporary simulation
 
       toast({
         title: "Dataset Uploaded Successfully!",
-        description: "Your dataset has been uploaded to IPFS and listed on the marketplace.",
+        description: `Your dataset has been uploaded to IPFS (${ipfsHash.slice(0, 8)}...) and will be listed on the marketplace once database tables are set up.`,
       });
 
       // Reset form
@@ -132,7 +147,7 @@ const Upload = () => {
       console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "There was an error uploading your dataset. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error uploading your dataset. Please try again.",
         variant: "destructive",
       });
     } finally {
