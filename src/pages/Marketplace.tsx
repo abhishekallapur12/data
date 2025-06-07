@@ -1,5 +1,5 @@
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,68 +8,53 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, Eye, Download, Calendar, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-// Mock data for demonstration
-const mockDatasets = [
-  {
-    id: '1',
-    name: 'E-commerce Customer Behavior',
-    description: 'Comprehensive dataset containing customer purchase patterns, demographics, and behavior analytics.',
-    price: '0.5',
-    currency: 'ETH',
-    seller: '0x1234...5678',
-    uploadDate: '2024-01-15',
-    downloads: 245,
-    size: '2.4 MB',
-    format: 'CSV',
-    tags: ['e-commerce', 'analytics', 'customer-data'],
-    category: 'Business',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400'
-  },
-  {
-    id: '2',
-    name: 'Global Climate Data 2023',
-    description: 'Real-time climate measurements from weather stations worldwide, including temperature, humidity, and precipitation.',
-    price: '1.2',
-    currency: 'ETH',
-    seller: '0x9876...3210',
-    uploadDate: '2024-01-10',
-    downloads: 156,
-    size: '15.8 MB',
-    format: 'JSON',
-    tags: ['climate', 'weather', 'environmental'],
-    category: 'Science',
-    image: 'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400'
-  },
-  {
-    id: '3',
-    name: 'Stock Market Analytics',
-    description: 'Historical stock prices and trading volumes for Fortune 500 companies over the last 5 years.',
-    price: '2.0',
-    currency: 'ETH',
-    seller: '0x5555...9999',
-    uploadDate: '2024-01-08',
-    downloads: 89,
-    size: '8.7 MB',
-    format: 'CSV',
-    tags: ['finance', 'stocks', 'trading'],
-    category: 'Finance',
-    image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=400'
-  },
-];
+// Initialize Supabase client
+const supabaseUrl = "https://emzcdxpagwnxesvnsfje.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtemNkeHBhZ3dueGVzdm5zZmplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxNDI1MzMsImV4cCI6MjA2NDcxODUzM30._bio527GlUa910ZGaUjiCLmkli8dgE67p9A7TxO0ui0";
+
+
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const Marketplace = () => {
-  const [datasets, setDatasets] = useState(mockDatasets);
+  const [datasets, setDatasets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [filterCategory, setFilterCategory] = useState('all');
 
   const categories = ['all', 'Business', 'Science', 'Finance', 'Technology', 'Healthcare'];
 
+  useEffect(() => {
+    async function fetchDatasets() {
+      setLoading(true);
+      setError(null);
+
+      // Fetch all datasets from Supabase table 'datasets'
+      const { data, error } = await supabase
+        .from('datasets')
+        .select('*');
+
+      if (error) {
+        setError(error.message);
+      } else {
+        setDatasets(data);
+      }
+      setLoading(false);
+    }
+    fetchDatasets();
+  }, []);
+
+  // Filter and sort datasets
   const filteredAndSortedDatasets = datasets
     .filter(dataset => {
-      const matchesSearch = dataset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           dataset.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           dataset.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+      const term = searchTerm.toLowerCase();
+      const matchesSearch =
+        dataset.name.toLowerCase().includes(term) ||
+        dataset.description.toLowerCase().includes(term) ||
+        (dataset.tags && dataset.tags.some(tag => tag.toLowerCase().includes(term)));
       const matchesCategory = filterCategory === 'all' || dataset.category === filterCategory;
       return matchesSearch && matchesCategory;
     })
@@ -86,6 +71,9 @@ const Marketplace = () => {
           return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
       }
     });
+
+  if (loading) return <p className="text-white text-center mt-8">Loading datasets...</p>;
+  if (error) return <p className="text-red-500 text-center mt-8">Error: {error}</p>;
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -108,7 +96,7 @@ const Marketplace = () => {
                 className="pl-10 bg-black/40 border-purple-500/20 text-white placeholder-gray-400"
               />
             </div>
-            
+
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-full md:w-[200px] bg-black/40 border-purple-500/20 text-white">
                 <SelectValue placeholder="Category" />
@@ -145,87 +133,86 @@ const Marketplace = () => {
 
         {/* Dataset Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredAndSortedDatasets.map((dataset) => (
-            <Card key={dataset.id} className="bg-black/40 border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 group">
-              <div className="aspect-video overflow-hidden rounded-t-lg">
-                <img
-                  src={dataset.image}
-                  alt={dataset.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-              
-              <CardHeader className="pb-3">
-                <CardTitle className="text-white text-lg line-clamp-2">{dataset.name}</CardTitle>
-                <p className="text-gray-400 text-sm line-clamp-3">{dataset.description}</p>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2">
-                  {dataset.tags.slice(0, 3).map((tag) => (
-                    <Badge key={tag} variant="secondary" className="bg-purple-500/20 text-purple-300 text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
+          {filteredAndSortedDatasets.length > 0 ? (
+            filteredAndSortedDatasets.map((dataset) => (
+              <Card key={dataset.id} className="bg-black/40 border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 group">
+                <div className="aspect-video overflow-hidden rounded-t-lg">
+                  <img
+                    src={dataset.image}
+                    alt={dataset.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
                 </div>
 
-                {/* Meta Information */}
-                <div className="space-y-2 text-sm text-gray-400">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center">
-                      <User className="w-4 h-4 mr-1" />
-                      {dataset.seller}
-                    </span>
-                    <span>{dataset.format}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center">
-                      <Download className="w-4 h-4 mr-1" />
-                      {dataset.downloads} downloads
-                    </span>
-                    <span>{dataset.size}</span>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    {new Date(dataset.uploadDate).toLocaleDateString()}
-                  </div>
-                </div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-white text-lg line-clamp-2">{dataset.name}</CardTitle>
+                  <p className="text-gray-400 text-sm line-clamp-3">{dataset.description}</p>
+                </CardHeader>
 
-                {/* Price and Actions */}
-                <div className="flex items-center justify-between pt-4 border-t border-purple-500/20">
-                  <div className="text-xl font-bold text-purple-400">
-                    {dataset.price} {dataset.currency}
+                <CardContent className="space-y-4">
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-2">
+                    {dataset.tags?.slice(0, 3).map((tag) => (
+                      <Badge key={tag} variant="secondary" className="bg-purple-500/20 text-purple-300 text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
                   </div>
-                  
-                  <div className="flex gap-2">
-                    <Link to={`/dataset/${dataset.id}`}>
-                      <Button size="sm" variant="outline" className="border-purple-500/50 text-purple-400 hover:bg-purple-500/20">
-                        <Eye className="w-4 h-4" />
+
+                  {/* Meta Information */}
+                  <div className="space-y-2 text-sm text-gray-400">
+                    <div className="flex items-center justify-between">
+                     <span className="flex items-center">
+  <User className="w-4 h-4 mr-1" />
+  {dataset.uploader_address}
+</span>
+                      <span>{dataset.format}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center">
+                        <Download className="w-4 h-4 mr-1" />
+                        {dataset.downloads} downloads
+                      </span>
+                      <span>{dataset.size}</span>
+                    </div>
+
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 mr-1" />
+                      {new Date(dataset.uploadDate).toLocaleDateString()}
+                    </div>
+                  </div>
+
+                  {/* Price and Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-purple-500/20">
+                    <div className="text-xl font-bold text-purple-400">
+                      {dataset.price} {dataset.currency}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Link to={`/dataset/${dataset.id}`}>
+                        <Button size="sm" variant="outline" className="border-purple-500/50 text-purple-400 hover:bg-purple-500/20">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                      <Button size="sm" className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white">
+                        Buy Now
                       </Button>
-                    </Link>
-                    <Button size="sm" className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white">
-                      Buy Now
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {filteredAndSortedDatasets.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <Search className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg">No datasets found matching your criteria</p>
-              <p className="text-sm">Try adjusting your search or filters</p>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-12 col-span-full">
+              <div className="text-gray-400 mb-4">
+                <Search className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg">No datasets found matching your criteria</p>
+                <p className="text-sm">Try adjusting your search or filters</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

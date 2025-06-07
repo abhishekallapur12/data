@@ -1,46 +1,34 @@
+// services/ipfsService.ts
+import axios from 'axios';
 
-import { create } from '@web3-storage/w3up-client'
+const PINATA_API_KEY = 'bf708289594cc2f26e67';
+const PINATA_API_SECRET = 'd5aa80a3fb7e8a957ab96fb7922fa2c8c0bd5e842841fa3fe1db215fa3eb3bba';
 
 export class IPFSService {
-  private static client: any = null;
-
-  static async getClient() {
-    if (!this.client) {
-      this.client = await create();
-    }
-    return this.client;
-  }
-
   static async uploadFile(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+
     try {
-      const client = await this.getClient();
-      
-      // For now, we'll use a simple upload approach
-      // In production, you'd want to handle authentication properly
-      const cid = await client.uploadFile(file);
-      
-      console.log('File uploaded to IPFS with CID:', cid.toString());
-      return cid.toString();
-    } catch (error) {
-      console.error('IPFS upload error:', error);
-      throw new Error('Failed to upload file to IPFS');
+      const res = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', formData, {
+        maxContentLength: Infinity,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          pinata_api_key: PINATA_API_KEY,
+          pinata_secret_api_key: PINATA_API_SECRET,
+        },
+      });
+
+      const cid = res.data.IpfsHash;
+      console.log('File uploaded to IPFS via Pinata. CID:', cid);
+      return cid;
+    } catch (error: any) {
+      console.error('IPFS Pinata upload error:', error.response?.data || error.message);
+      throw new Error('Failed to upload file to IPFS via Pinata');
     }
   }
 
   static getIPFSUrl(cid: string): string {
-    return `https://w3s.link/ipfs/${cid}`;
-  }
-
-  static async downloadFile(cid: string): Promise<Blob> {
-    try {
-      const response = await fetch(this.getIPFSUrl(cid));
-      if (!response.ok) {
-        throw new Error('Failed to download file from IPFS');
-      }
-      return await response.blob();
-    } catch (error) {
-      console.error('IPFS download error:', error);
-      throw new Error('Failed to download file from IPFS');
-    }
+    return `https://gateway.pinata.cloud/ipfs/${cid}`;
   }
 }

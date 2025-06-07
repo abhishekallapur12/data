@@ -10,6 +10,7 @@ import { useWeb3 } from '@/contexts/Web3Context';
 import { Upload as UploadIcon, File, X, Plus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { IPFSService } from '@/services/ipfsService';
+import { supabase } from '@/integrations/supabase/client'; // ✅ make sure this path is correct
 
 const Upload = () => {
   const { isConnected, account } = useWeb3();
@@ -28,31 +29,22 @@ const Upload = () => {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const allowedTypes = ['text/csv', 'application/json'];
-      if (!allowedTypes.includes(file.type)) {
-        toast({
-          title: "Invalid File Type",
-          description: "Please upload a CSV or JSON file.",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!file) return;
 
-      // Validate file size (max 100MB)
-      const maxSize = 100 * 1024 * 1024; // 100MB
-      if (file.size > maxSize) {
-        toast({
-          title: "File Too Large",
-          description: "Please upload a file smaller than 100MB.",
-          variant: "destructive",
-        });
-        return;
-      }
+    const allowedTypes = ['text/csv', 'application/json'];
+    const maxSize = 100 * 1024 * 1024;
 
-      setSelectedFile(file);
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid File Type", description: "Upload CSV or JSON only", variant: "destructive" });
+      return;
     }
+
+    if (file.size > maxSize) {
+      toast({ title: "File Too Large", description: "Max size is 100MB", variant: "destructive" });
+      return;
+    }
+
+    setSelectedFile(file);
   };
 
   const addTag = () => {
@@ -81,34 +73,24 @@ const Upload = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isConnected) {
-      toast({
-        title: "Wallet Not Connected",
-        description: "Please connect your wallet to upload datasets.",
-        variant: "destructive",
-      });
+      toast({ title: "Wallet Not Connected", description: "Connect MetaMask to upload.", variant: "destructive" });
       return;
     }
 
     if (!selectedFile) {
-      toast({
-        title: "No File Selected",
-        description: "Please select a file to upload.",
-        variant: "destructive",
-      });
+      toast({ title: "No File", description: "Select a dataset file to upload.", variant: "destructive" });
       return;
     }
 
     setIsUploading(true);
 
     try {
-      // Upload file to IPFS
-      console.log('Uploading to IPFS...', selectedFile);
+      // ✅ Upload to IPFS
       const ipfsHash = await IPFSService.uploadFile(selectedFile);
-      console.log('File uploaded to IPFS with hash:', ipfsHash);
 
-      // Prepare metadata for Supabase
+      // ✅ Prepare metadata
       const datasetMetadata = {
         name: formData.name,
         description: formData.description,
@@ -123,31 +105,34 @@ const Upload = () => {
         upload_timestamp: new Date().toISOString(),
       };
 
-      console.log('Saving metadata to Supabase...', datasetMetadata);
-      // TODO: Save to Supabase database once tables are created
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Temporary simulation
+      // ✅ Save to Supabase
+      const { error } = await supabase.from('datasets').insert([datasetMetadata]);
 
+      if (error) {
+        console.error('Supabase insert error:', error);
+        toast({
+          title: "Database Error",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // ✅ Success
       toast({
         title: "Dataset Uploaded Successfully!",
-        description: `Your dataset has been uploaded to IPFS (${ipfsHash.slice(0, 8)}...) and will be listed on the marketplace once database tables are set up.`,
+        description: `Your dataset has been uploaded to IPFS (${ipfsHash.slice(0, 8)}...) and saved to the marketplace.`,
       });
 
-      // Reset form
-      setFormData({
-        name: '',
-        description: '',
-        price: '',
-        category: '',
-        tags: [],
-        currentTag: '',
-      });
+      // ✅ Reset
+      setFormData({ name: '', description: '', price: '', category: '', tags: [], currentTag: '' });
       setSelectedFile(null);
 
     } catch (error) {
       console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "There was an error uploading your dataset. Please try again.",
+        description: error instanceof Error ? error.message : "Error uploading dataset. Try again.",
         variant: "destructive",
       });
     } finally {
@@ -181,6 +166,7 @@ const Upload = () => {
           <p className="text-gray-300 text-lg">Share your data with the world and earn crypto</p>
         </div>
 
+        {/* Form card */}
         <Card className="bg-black/40 border-purple-500/20">
           <CardHeader>
             <CardTitle className="text-white flex items-center">
@@ -188,21 +174,14 @@ const Upload = () => {
               Dataset Information
             </CardTitle>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* File Upload */}
+              {/* File input */}
               <div className="space-y-2">
                 <Label htmlFor="file" className="text-white">Dataset File</Label>
                 <div className="border-2 border-dashed border-purple-500/30 rounded-lg p-8 text-center hover:border-purple-500/50 transition-colors">
-                  <input
-                    type="file"
-                    id="file"
-                    accept=".csv,.json"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  
+                  <input type="file" id="file" accept=".csv,.json" onChange={handleFileSelect} className="hidden" />
                   {selectedFile ? (
                     <div className="flex items-center justify-center space-x-3">
                       <File className="w-8 h-8 text-purple-400" />
@@ -212,13 +191,7 @@ const Upload = () => {
                           {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedFile(null)}
-                        className="text-gray-400 hover:text-red-400"
-                      >
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedFile(null)} className="text-gray-400 hover:text-red-400">
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
@@ -232,16 +205,15 @@ const Upload = () => {
                 </div>
               </div>
 
-              {/* Dataset Name */}
+              {/* Name */}
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-white">Dataset Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., E-commerce Customer Behavior Data"
-                  className="bg-black/40 border-purple-500/20 text-white"
                   required
+                  className="bg-black/40 border-purple-500/20 text-white"
                 />
               </div>
 
@@ -252,29 +224,26 @@ const Upload = () => {
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Describe your dataset, its contents, and potential use cases..."
-                  className="bg-black/40 border-purple-500/20 text-white min-h-[100px]"
                   required
+                  className="bg-black/40 border-purple-500/20 text-white min-h-[100px]"
                 />
               </div>
 
-              {/* Price and Category */}
+              {/* Price + Category */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="price" className="text-white">Price (ETH) *</Label>
                   <Input
                     id="price"
                     type="number"
-                    step="0.001"
                     min="0"
+                    step="0.001"
                     value={formData.price}
                     onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                    placeholder="0.1"
-                    className="bg-black/40 border-purple-500/20 text-white"
                     required
+                    className="bg-black/40 border-purple-500/20 text-white"
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="category" className="text-white">Category *</Label>
                   <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
@@ -283,9 +252,7 @@ const Upload = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map(category => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
+                        <SelectItem key={category} value={category}>{category}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -303,33 +270,17 @@ const Upload = () => {
                     placeholder="Add a tag..."
                     className="bg-black/40 border-purple-500/20 text-white flex-1"
                   />
-                  <Button
-                    type="button"
-                    onClick={addTag}
-                    variant="outline"
-                    size="icon"
-                    className="border-purple-500/50 text-purple-400 hover:bg-purple-500/20"
-                  >
+                  <Button type="button" onClick={addTag} variant="outline" size="icon" className="border-purple-500/50 text-purple-400 hover:bg-purple-500/20">
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
-                
+
                 {formData.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className="bg-purple-500/20 text-purple-300 pr-1"
-                      >
+                    {formData.tags.map(tag => (
+                      <Badge key={tag} variant="secondary" className="bg-purple-500/20 text-purple-300 pr-1">
                         {tag}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeTag(tag)}
-                          className="ml-1 h-auto p-0 text-purple-300 hover:text-red-400"
-                        >
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeTag(tag)} className="ml-1 h-auto p-0 text-purple-300 hover:text-red-400">
                           <X className="w-3 h-3" />
                         </Button>
                       </Badge>
@@ -338,12 +289,8 @@ const Upload = () => {
                 )}
               </div>
 
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={isUploading || !selectedFile}
-                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white py-3"
-              >
+              {/* Submit */}
+              <Button type="submit" disabled={isUploading || !selectedFile} className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white py-3">
                 {isUploading ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

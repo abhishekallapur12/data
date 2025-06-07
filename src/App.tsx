@@ -10,8 +10,9 @@ import Index from "./pages/Index";
 import Marketplace from "./pages/Marketplace";
 import Upload from "./pages/Upload";
 import Profile from "./pages/Profile";
-import Dataset from "./pages/Dataset";
+import Dataset from "./pages/DatasetDetail";
 import NotFound from "./pages/NotFound";
+import DatasetDetail from "./pages/DatasetDetail";
 
 const queryClient = new QueryClient();
 
@@ -29,7 +30,7 @@ const App = () => (
               <Route path="/marketplace" element={<Marketplace />} />
               <Route path="/upload" element={<Upload />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/dataset/:id" element={<Dataset />} />
+              <Route path="/dataset/:id" element={<DatasetDetail />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
