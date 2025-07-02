@@ -1,73 +1,51 @@
-# Welcome to your Lovable project
+npm i 
 
-## Project info
+add env files 
 
-**URL**: https://lovable.dev/projects/0c2d78a3-7bca-4509-a79a-490ce0de2a45
 
-## How can I edit this code?
+policy     (((auth.uid())::text = buyer_address) OR (buyer_address ~~ 'razorpay_%'::text))
 
-There are several ways of editing your application.
+![alt text](image.png)
 
-**Use Lovable**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/0c2d78a3-7bca-4509-a79a-490ce0de2a45) and start prompting.
 
-Changes made via Lovable will be committed automatically to this repo.
+run in supabase 
 
-**Use your preferred IDE**
+CREATE TABLE public.datasets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  price numeric NOT NULL,
+  category text,
+  tags ARRAY,
+  ipfs_hash text NOT NULL,
+  file_name text,
+  file_size bigint,
+  file_type text,
+  uploader_address text NOT NULL,
+  upload_timestamp timestamp with time zone DEFAULT now(),
+  schema_json jsonb,
+  preview_json jsonb,
+  file_url text,
+  downloads integer DEFAULT 0,
+  preview_data text,
+  preview_image_hash text,
+  status text,
+  CONSTRAINT datasets_pkey PRIMARY KEY (id)
+);
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/0c2d78a3-7bca-4509-a79a-490ce0de2a45) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+CREATE TABLE public.purchases (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  dataset_id uuid,
+  buyer_address text,
+  purchased_at timestamp without time zone DEFAULT now(),
+  tx_hash text NOT NULL DEFAULT ''::text,
+  confirmed boolean DEFAULT false,
+  amount_paid numeric,
+  currency character varying,
+  payment_method character varying,
+  purchase_date timestamp without time zone DEFAULT now(),
+  status text DEFAULT 'completed'::text,
+  CONSTRAINT purchases_pkey PRIMARY KEY (id),
+  CONSTRAINT purchases_dataset_id_fkey FOREIGN KEY (dataset_id) REFERENCES public.datasets(id)
+);
